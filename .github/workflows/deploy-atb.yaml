@@ -8,38 +8,51 @@ on:
 
 jobs:
   Deploy-to-atb-environment:
-      runs-on: ubuntu-latest
-      environment: atb
-      steps:
-          - uses: actions/setup-node@v3
-            with:
-              node-version: '18'
-          - name: 'Checkout source code'
-            uses: actions/checkout@v3
-            with:
-              fetch-depth: '2'
-                
-          # Now Install Salesforce CLI
-          - name: 'Install sfdx'
-            run: npm install @salesforce/cli --global
-          - name: 'Installing sfdx git delta'
-            run: | 
-                echo Y | sfdx plugins:install sfdx-git-delta
-                sfdx plugins
+    runs-on: ubuntu-latest
+    environment: atb
 
-          - name: 'Create delta packages'
-            run: | 
-                mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
-                echo "[INFO] Diff generated"
+    steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 'Checkout source code'
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: '2'
                 
-          - name: 'Deploy to environment with running all local tests'
-            run: |
-                echo "${{ secrets.ATB_SERVER_KEY }}" > server.key
-                sf org login jwt \
-                --username ${{ secrets.DEPLOYMENT_USER_NAME }} \
-                --jwt-key-file server.key \
-                --client-id ${{ secrets.CONSUMER_KEY }} \
-                --instance-url ${{ vars.INSTANCE_URL }} \
-                --set-default
-                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+      # Install Salesforce CLI
+      - name: 'Install sfdx'
+        run: npm install @salesforce/cli --global
+
+      - name: 'Installing sfdx git delta'
+        run: |
+          echo Y | sfdx plugins:install sfdx-git-delta
+          sfdx plugins
+
+      - name: 'Create delta packages'
+        run: |
+          mkdir changed-sources
+          sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+          echo "[INFO] Diff generated"
+
+      # ✅ DEBUG STEP (Temporary)
+      - name: 'Debug secret injection'
+        run: |
+          echo "USER: '${{ secrets.DEPLOYMENT_USER_NAME }}'"
+          echo "CLIENT: '${{ secrets.CONSUMER_KEY }}'"
+          echo "INSTANCE: '${{ vars.INSTANCE_URL }}'"
+          if [ -z "${{ secrets.DEPLOYMENT_USER_NAME }}" ]; then echo "USERNAME EMPTY"; else echo "USERNAME OK"; fi
+          if [ -z "${{ secrets.CONSUMER_KEY }}" ]; then echo "CONSUMER KEY EMPTY"; else echo "CONSUMER KEY OK"; fi
+          if [ -z "${{ vars.INSTANCE_URL }}" ]; then echo "INSTANCE URL EMPTY"; else echo "INSTANCE URL OK"; fi
+
+      - name: 'Deploy to environment with running all local tests'
+        run: |
+          echo "${{ secrets.ATB_SERVER_KEY }}" > server.key
+          sf org login jwt \
+            --username ${{ secrets.DEPLOYMENT_USER_NAME }} \
+            --jwt-key-file server.key \
+            --client-id ${{ secrets.CONSUMER_KEY }} \
+            --instance-url ${{ vars.INSTANCE_URL }} \
+            --set-default
+          sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
