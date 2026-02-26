@@ -1,38 +1,51 @@
-name: Validate on PR to ATB
+name: Validate on PR to UAT
 
 on:
   pull_request:
-    branches:
-      - uat
+    branches: [ uat ]
+    paths:
+      - 'force-app/**'
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest 
-    environment: atb
+  Validate-to-UAT:
+    runs-on: ubuntu-latest
+    environment: atb   # same environment where secrets exist
 
     steps:
-      - uses: actions/checkout@v3
-
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: Install Salesforce CLI
+      - name: 'Checkout source code'
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: '2'
+
+      - name: 'Install Salesforce CLI'
         run: npm install @salesforce/cli --global
 
-      - name: Authenticate to Test Org
+      - name: 'Install sfdx git delta'
         run: |
-          echo "${{ secrets.TEST_SERVER_KEY }}" > server.key
+          echo Y | sfdx plugins:install sfdx-git-delta
+          sfdx plugins
+
+      - name: 'Create delta packages'
+        run: |
+          mkdir changed-sources
+          sf sgd source delta --to "HEAD" --from "origin/uat" --output changed-sources/ --generate-delta --source force-app/
+          echo "[INFO] Diff generated"
+
+      - name: 'Validate Only (No Deployment)'
+        run: |
+          echo "${{ secrets.ATB_SERVER_KEY }}" > server.key
           sf org login jwt \
-            --username ${{ secrets.TEST_USERNAME }} \
+            --username ${{ secrets.DEPLOYMENT_USER_NAME }} \
             --jwt-key-file server.key \
-            --client-id ${{ secrets.TEST_CONSUMER_KEY }} \
-            --instance-url https://login.salesforce.com \
+            --client-id ${{ secrets.CONSUMER_KEY }} \
+            --instance-url ${{ vars.INSTANCE_URL }} \
             --set-default
 
-      - name: Validate Only (No Deploy)
-        run: |
           sf project deploy start \
-            --source-dir force-app \
+            --source-dir changed-sources/force-app \
             --test-level RunLocalTests \
             --dry-run
