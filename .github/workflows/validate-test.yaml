@@ -1,0 +1,38 @@
+name: Validate on PR to ATB
+
+on:
+  pull_request:
+    branches:
+      - uat
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest 
+    environment: atb
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Authenticate to Test Org
+        run: |
+          echo "${{ secrets.TEST_SERVER_KEY }}" > server.key
+          sf org login jwt \
+            --username ${{ secrets.TEST_USERNAME }} \
+            --jwt-key-file server.key \
+            --client-id ${{ secrets.TEST_CONSUMER_KEY }} \
+            --instance-url https://login.salesforce.com \
+            --set-default
+
+      - name: Validate Only (No Deploy)
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --test-level RunLocalTests \
+            --dry-run
