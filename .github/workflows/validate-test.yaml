@@ -9,7 +9,7 @@ on:
 jobs:
   Validate-to-UAT:
     runs-on: ubuntu-latest
-    environment: atb   # same environment where secrets exist
+    environment: atb
 
     steps:
       - uses: actions/setup-node@v3
@@ -19,7 +19,11 @@ jobs:
       - name: 'Checkout source code'
         uses: actions/checkout@v3
         with:
-          fetch-depth: '2'
+          fetch-depth: 0   # MUST be 0 for delta in PR
+
+      - name: 'Fetch base branch'
+        run: |
+          git fetch origin uat
 
       - name: 'Install Salesforce CLI'
         run: npm install @salesforce/cli --global
@@ -32,12 +36,18 @@ jobs:
       - name: 'Create delta packages'
         run: |
           mkdir changed-sources
-          sf sgd source delta --to "HEAD" --from "origin/uat" --output changed-sources/ --generate-delta --source force-app/
+          sf sgd source delta \
+            --to "HEAD" \
+            --from "origin/uat" \
+            --output-dir changed-sources/ \
+            --generate-delta \
+            --source-dir force-app/
           echo "[INFO] Diff generated"
 
       - name: 'Validate Only (No Deployment)'
         run: |
           echo "${{ secrets.ATB_SERVER_KEY }}" > server.key
+
           sf org login jwt \
             --username ${{ secrets.DEPLOYMENT_USER_NAME }} \
             --jwt-key-file server.key \
