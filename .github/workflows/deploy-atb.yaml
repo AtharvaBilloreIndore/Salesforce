@@ -9,7 +9,6 @@ on:
 jobs:
   Deploy-to-atb-environment:
       runs-on: ubuntu-latest
-      environment: atb
       steps:
           - uses: actions/setup-node@v3
             with:
