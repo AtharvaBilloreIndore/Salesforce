@@ -36,7 +36,7 @@ jobs:
           - name: 'Deploy to environment with running all local tests'
             run: |
                 echo "${{ secrets.ATB_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.ATB_DEPLOYMENT_USER_NAME }} --jwt-key-file server.key 
-                --client-id ${{ secrets.ATB_CONSUMER_KEY }} --instance-url ${{ vars.ATB_INSTANCE_URL }} 
+                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key 
+                --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} 
                 --set-default
                 sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
